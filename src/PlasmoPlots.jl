@@ -8,7 +8,7 @@ using GeometryBasics:Point2f0,Point
 using Colors
 using LightGraphs
 
-export plot, spy, layout_plot, matrix_plot
+export layout_plot, matrix_plot
 
 include("layout_plot.jl")
 
