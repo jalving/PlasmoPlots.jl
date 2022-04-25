@@ -1,4 +1,4 @@
-[![CI](https://github.com/jalving/PlasmoPlots.jl/workflows/CI/badge.svg)](https://github.com/jalving/PlasmoPlots.jl/actions)
+[![CI](https://github.com/plasmo-dev/PlasmoPlots.jl/workflows/CI/badge.svg)](https://github.com/plasmo-dev/PlasmoPlots.jl/actions)
 
 # PlasmoPlots
 
