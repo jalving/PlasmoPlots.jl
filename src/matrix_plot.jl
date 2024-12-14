@@ -35,9 +35,9 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
 
 
     #Plot limits
-    n_vars_total = num_all_variables(graph)
-    n_cons_total = num_all_constraints(graph)
-    n_linkcons_total = num_all_linkconstraints(graph)
+    n_vars_total = num_variables(graph)#length(all_variables(graph))
+    n_cons_total = num_constraints(graph)#length(all_constraints(graph))
+    n_linkcons_total = num_link_constraints(graph)#length(all_linkconstraints(graph))
 
     n_all_cons_total = n_cons_total + n_linkcons_total #n_link_edges_total
 
@@ -64,7 +64,7 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
 
     row = n_all_cons_total  - n_link_constraints #- height_initial
     #draw node blocks for this graph
-    for (i,node) in enumerate(getnodes(graph))
+    for (i,node) in enumerate(local_nodes(graph))
         height = num_constraints(node)
         row -= height
         #row_start,row_end = node_row_ranges[node]
@@ -81,7 +81,7 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
             Plots.plot!(plt,rec,opacity = 1.0,color = node_cols[i])
         end
         if node_labels
-            Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label,labelsize))
+            Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label.x,labelsize))
         end
     end
 
@@ -91,13 +91,13 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
 
     link_rows = []
     link_cols = []
-    for link in getlinkconstraints(graph)
+    for link in all_link_constraints(graph)
         #row -= 1
 
         linkcon = constraint_object(link)
         vars = keys(linkcon.func.terms)
         for var in vars
-            node = getnode(var)
+            node = owner_model(var)
 
             col_start,col_end = node_col_ranges[node]
             col_start = col_start + var.index.value - 1 + 0.5
@@ -136,13 +136,13 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
         link_cols = []
         row = row_start_graph#
 
-        for link in getlinkconstraints(subgraph)
+        for link in all_link_constraints(subgraph)
             #row -= 1
-            #nodes = getnodes(link)
+            #nodes = local_nodes(link)
             linkcon = constraint_object(link)
             vars = keys(linkcon.func.terms)
             for var in vars
-                node = getnode(var)
+                node = owner_model(var)
                 col_start,col_end = node_col_ranges[node]
                 col_start = col_start + var.index.value - 1 + 0.5
                 # rec = rectangle(1,1,col_start,row)
@@ -161,7 +161,7 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
         end
 
         #draw node blocks for this graph
-        for node in getnodes(subgraph)
+        for node in local_nodes(subgraph)
             height = num_constraints(node)
             row -= height
             row_start = row
@@ -171,15 +171,15 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
             rec = rectangle(width,height,col_start,row_start)
             Plots.plot!(plt,rec,opacity = 1.0,color = colors[i])
             if node_labels
-                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label,labelsize))
+                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label.x,labelsize))
             end
 
         end
 
         _plot_subgraphs!(subgraph,plt,node_col_ranges,row,node_labels = node_labels,labelsize = labelsize)
 
-        num_cons = num_all_constraints(subgraph) + num_all_linkconstraints(subgraph)
-        num_vars = num_all_variables(subgraph)
+        num_cons = num_constraints(subgraph) + num_link_constraints(subgraph)
+        num_vars = num_variables(subgraph)
         row_start_graph -= num_cons
         subgraph_row_start = row_start_graph
 
@@ -204,9 +204,9 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
     end
 
     #Plot limits
-    n_vars_total = sum(num_variables.(subgraphs)) #+ sum(num_variables.(getnodes(graph))) #master
-    n_cons_total = sum(num_all_constraints.(subgraphs)) #+ sum(num_constraints.(getnodes(graph))) #+ num_linkconstraints(graph)
-    n_linkcons_total = sum(num_all_linkconstraints.(subgraphs)) #+ num_all_linkconstraints(graph)
+    n_vars_total = sum(num_variables.(subgraphs)) #+ sum(num_variables.(local_nodes(graph))) #master
+    n_cons_total = sum(num_constraints.(subgraphs)) #+ sum(num_constraints.(local_nodes(graph))) #+ num_link_constraints(graph)
+    n_linkcons_total = sum(num_link_constraints.(subgraphs)) #+ num_all_linkconstraints(graph)
 
     n_all_cons_total = n_cons_total + n_linkcons_total
 
@@ -250,12 +250,12 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
         link_rows = []
         link_cols = []
         row = row_start_graph
-        for link in getlinkconstraints(subgraph)
+        for link in all_link_constraints(subgraph)
             row -= 1
             linkcon = constraint_object(link)
             vars = keys(linkcon.func.terms)
             for var in vars
-                node = getnode(var)
+                node = owner_model(var)
                 col_start,col_end = node_col_ranges[node]
                 col_start = col_start + var.index.value - 1
                 push!(link_rows,row)
@@ -265,7 +265,7 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
         Plots.scatter!(plt,link_cols,link_rows,markersize = 1,markercolor = :blue,markershape = :rect);
 
         #draw node blocks for this graph
-        for node in getnodes(subgraph)
+        for node in local_nodes(subgraph)
             height = num_constraints(node)
             row -= height
             row_start = row
@@ -275,12 +275,12 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
             rec = rectangle(width,height,col_start,row_start)
             Plots.plot!(plt,rec,opacity = 1.0,color = colors[i])
             if node_labels
-                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label,labelsize))
+                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label.x, labelsize))
             end
         end
 
-        num_cons = num_all_constraints(subgraph) + num_all_linkconstraints(subgraph)
-        num_vars = num_all_variables(subgraph)
+        num_cons = num_constraints(subgraph) + num_link_constraints(subgraph)
+        num_vars = num_variables(subgraph)
 
         subgraph_plt_start = row
         rec = rectangle(num_vars,num_cons,col_start_graph,subgraph_plt_start)

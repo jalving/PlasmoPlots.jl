@@ -51,7 +51,7 @@ function layout_plot(graph::OptiGraph;
         if cols[1] == Colors.parse(Colorant,"black")
             cols[1] = Colors.parse(Colorant,"grey")
         end
-        for node in getnodes(graph)
+        for node in local_nodes(graph)
             push!(markercolor,cols[1])
         end
         i = 2
@@ -74,14 +74,15 @@ function layout_plot(graph::OptiGraph;
 
     #hypergraph,hyper_map = hyper_graph(graph)
     # clique_graph,clique_map = clique_expansion(hypergraph)
-    clique_graph,clique_map = Plasmo.clique_graph(graph)
-    lgraph = clique_graph.graph
+
+    clique_proj = clique_projection(graph)
+    lgraph = clique_proj.projected_graph
 
     startpositions = Array{Point{2,Float32},1}()
-    for i = 1:LightGraphs.nv(lgraph)
+    for i = 1:Graphs.nv(lgraph)
         push!(startpositions,Point(rand(),rand()))
     end
-    mat = LightGraphs.adjacency_matrix(lgraph)
+    mat = Graphs.adjacency_matrix(lgraph)
     # positions = SFDP.layout(mat,Point2f0,startpositions = startpositions;layout_options...)
     positions = NetworkLayout.sfdp(mat,initialpos = startpositions;layout_options...)
 
@@ -91,7 +92,7 @@ function layout_plot(graph::OptiGraph;
     if node_labels
         for (i,node) in enumerate(all_nodes(graph))
             pos = positions[i]
-            Plots.annotate!(scat_plt,pos[1],pos[2],Plots.text(node.label,labelsize))
+            Plots.annotate!(scat_plt,pos[1],pos[2],Plots.text(node.label.x,labelsize))
         end
     end
 
@@ -162,15 +163,15 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
     #LAYOUT
     # hypergraph,hyper_map = gethypergraph(graph)
     # clique_graph,clique_map = clique_expansion(hypergraph)
-    clique_graph,clique_map = Plasmo.clique_graph(graph)
-    lgraph = clique_graph.graph
+    clique_proj = clique_projection(graph)
+    lgraph = clique_proj.projected_graph
 
 
     startpositions = Array{Point{2,Float32},1}()
-    for i = 1:LightGraphs.nv(lgraph)
+    for i = 1:Graphs.nv(lgraph)
         push!(startpositions,Point(rand(),rand()))
     end
-    mat = LightGraphs.adjacency_matrix(lgraph)
+    mat = Graphs.adjacency_matrix(lgraph)
     # positions = SFDP.layout(mat,Point2f0,startpositions = startpositions;layout_options...)
     positions = NetworkLayout.sfdp(mat,initialpos = startpositions;layout_options...)
 
@@ -180,7 +181,7 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
     if node_labels
         for (i,node) in enumerate(all_nodes(graph))
             pos = positions[i]
-            Plots.annotate!(scat_plt,pos[1],pos[2],Plots.text(node.label,labelsize))
+            Plots.annotate!(scat_plt,pos[1],pos[2],Plots.text(node.label.x,labelsize))
         end
     end
 

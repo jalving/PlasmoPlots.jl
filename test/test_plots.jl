@@ -118,7 +118,7 @@ function test_plot_2()
     @linkconstraint(graph0,n0[:x] + n7[:x] == 7)
 
     for (i,node) in enumerate(all_nodes(graph0))
-        node.label = "n$i"
+        node.label.x = Symbol("n$i")
     end
 
     plt_graph2 = layout_plot(graph0,node_labels = true,markersize = 60,labelsize = 30,linewidth = 4,subgraph_colors = true,
