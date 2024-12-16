@@ -2,7 +2,15 @@
 rectangle(w, h, x, y) = Plots.Shape(x .+ [0,w,w,0], y .+ [0,0,h,h])
 
 """
-    PlasmoPlots.matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgraph_colors = false,node_colors = false,markersize = 1)
+    PlasmoPlots.matrix_plot(
+        graph::OptiGraph;
+        node_labels=false,
+        labelsize=24,
+        subgraph_colors=false,
+        node_colors=false,
+        markersize=1,
+        include_variable_constraints=false,
+    )
 
 Plot a matrix visualization of the optigraph: `graph`. The following keyword arguments can be provided to customize the matrix visual.
 
@@ -11,10 +19,19 @@ Plot a matrix visualization of the optigraph: `graph`. The following keyword arg
 * `subgraph_colors = false`: whether to color nodes according to their subgraph.
 * `node_colors = false`: whether to color nodes.  Only active if `subgraph_colors = false`.
 * `markersize = 1`: Size of the linking constraints in the matrix representation.
+* `include_variable_constraints = false`: whether to include variable in set constraints
 """
-function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgraph_colors = false,node_colors = false,markersize = 1)
+function matrix_plot(
+    graph::OptiGraph;
+    node_labels = false,
+    labelsize = 24,
+    subgraph_colors = false,
+    node_colors = false,
+    markersize = 1,
+    include_variable_constraints=false,
+)
 
-    n_graphs = length(graph.subgraphs)
+    n_graphs = Plasmo.num_local_subgraphs(graph)
     if subgraph_colors
         cols = Colors.distinguishable_colors(n_graphs + 1)
         if cols[1] == Colors.colorant"black"
@@ -33,13 +50,15 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
         node_cols = cols[2:end]
     end
 
-
     #Plot limits
-    n_vars_total = num_variables(graph)#length(all_variables(graph))
-    n_cons_total = num_constraints(graph)#length(all_constraints(graph))
-    n_linkcons_total = num_link_constraints(graph)#length(all_linkconstraints(graph))
+    n_vars_total = num_variables(graph)
+    n_cons_total = num_constraints(
+        graph;
+        count_variable_in_set_constraints=include_variable_constraints
+    )
+    n_linkcons_total = num_link_constraints(graph)
 
-    n_all_cons_total = n_cons_total + n_linkcons_total #n_link_edges_total
+    n_all_cons_total = n_cons_total + n_linkcons_total
 
     if n_all_cons_total >= 5
         yticks = Int64.(round.(collect(range(0,stop = n_all_cons_total,length = 5))))
@@ -48,18 +67,29 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
     end
 
     #Setup plot dimensions
-    plt = Plots.plot(;xlims = [0,n_vars_total],ylims = [0,n_all_cons_total],legend = false,framestyle = :box,xlabel = "Node Variables",ylabel = "Constraints",size = (800,800),
-    guidefontsize = 24,tickfontsize = 18,grid = false,yticks = yticks)
+    plt = Plots.plot(;
+        xlims = [0,n_vars_total],
+        ylims = [0,n_all_cons_total],
+        legend = false,
+        framestyle = :box,
+        xlabel = "Node Variables",
+        ylabel = "Constraints",
+        size = (800,800),
+        guidefontsize = 24,
+        tickfontsize = 18,
+        grid = false,
+        yticks = yticks
+    )
 
     #plot top level nodes, then start going down subgraphs
-    n_link_constraints = num_link_constraints(graph)  #local links
+    n_link_constraints = num_local_link_constraints(graph)  #local links
     col = 0
     node_indices = Dict()
     node_col_ranges = Dict()
-    for (i,node) in enumerate(all_nodes(graph))
+    for (i,node) in enumerate(Plasmo.all_nodes(graph))
         node_indices[node] = i
-        node_col_ranges[node] = [col,col + num_variables(node)]
-        col += num_variables(node)
+        node_col_ranges[node] = [col,col + Plasmo.num_variables(node)]
+        col += Plasmo.num_variables(node)
     end
 
     row = n_all_cons_total  - n_link_constraints #- height_initial
@@ -102,8 +132,6 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
             col_start,col_end = node_col_ranges[node]
             col_start = col_start + var.index.value - 1 + 0.5
 
-
-
             #these are just points.
             #rec = rectangle(1,1,col_start,row)
             push!(link_rows,row - 0.5)
@@ -112,29 +140,54 @@ function matrix_plot(graph::OptiGraph;node_labels = false,labelsize = 24,subgrap
         end
         row -= 1
     end
-    Plots.scatter!(plt,link_cols,link_rows,markersize = markersize,markercolor = :blue,markershape = :rect);
+    Plots.scatter!(
+        plt,
+        link_cols,
+        link_rows,
+        markersize = markersize,
+        markercolor = :blue,
+        markershape = :rect
+    );
 
     if length(graph.optinodes) > 0
         row -= 1
     end
 
-    _plot_subgraphs!(graph,plt,node_col_ranges,row,node_labels = node_labels,labelsize = labelsize,colors = colors,markersize = markersize)
+    _plot_subgraphs!(
+        graph,
+        plt,
+        node_col_ranges,
+        row,
+        node_labels = node_labels,
+        labelsize = labelsize,
+        colors = colors,
+        markersize = markersize
+    )
     return plt
 end
 
-function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;node_labels = false,labelsize = 24,colors = nothing,markersize = 1)
+function _plot_subgraphs!(
+    graph::OptiGraph,
+    plt,
+    node_col_ranges,
+    row_start_graph;
+    node_labels = false,
+    labelsize = 24,
+    colors = nothing,
+    markersize = 1,
+    include_variable_constraints=false,
+)
     if colors == nothing
-        colors = [Colors.parse(Colorant,"grey") for _= 1:length(graph.subgraphs)]
+        colors = [Colors.parse(Colorant,"grey") for _= 1:Plasmo.num_local_subgraphs(graph)]
     end
 
 
     row_start_graph = row_start_graph
-    for (i,subgraph) in enumerate(getsubgraphs(graph))
-
+    for (i,subgraph) in enumerate(local_subgraphs(graph))
 
         link_rows = []
         link_cols = []
-        row = row_start_graph#
+        row = row_start_graph
 
         for link in all_link_constraints(subgraph)
             #row -= 1
@@ -152,7 +205,14 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
             end
             row -= 1
         end
-        Plots.scatter!(plt,link_cols,link_rows,markersize = markersize,markercolor = :blue,markershape = :rect);
+        Plots.scatter!(
+            plt,
+            link_cols,
+            link_rows,
+            markersize = markersize,
+            markercolor = :blue,
+            markershape = :rect
+        );
 
         if !(isempty(subgraph.optinodes))
             subgraph_col_start = node_col_ranges[subgraph.optinodes[1]][1]
@@ -162,7 +222,9 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
 
         #draw node blocks for this graph
         for node in local_nodes(subgraph)
-            height = num_constraints(node)
+            height = num_constraints(
+                node; count_variable_in_set_constraints=include_variable_constraints
+            )
             row -= height
             row_start = row
             col_start,col_end = node_col_ranges[node]
@@ -171,14 +233,28 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
             rec = rectangle(width,height,col_start,row_start)
             Plots.plot!(plt,rec,opacity = 1.0,color = colors[i])
             if node_labels
-                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label.x,labelsize))
+                Plots.annotate!(
+                    plt,
+                    (col_start + width + col_start)/2,
+                    (row + height + row)/2,
+                    Plots.text(node.label.x,labelsize)
+                )
             end
 
         end
 
-        _plot_subgraphs!(subgraph,plt,node_col_ranges,row,node_labels = node_labels,labelsize = labelsize)
+        _plot_subgraphs!(
+            subgraph,
+            plt,
+            node_col_ranges,
+            row,
+            node_labels = node_labels,
+            labelsize = labelsize
+        )
 
-        num_cons = num_constraints(subgraph) + num_link_constraints(subgraph)
+        num_cons = Plasmo.num_constraints(
+            subgraph; count_variable_in_set_constraints=include_variable_constraints
+        )
         num_vars = num_variables(subgraph)
         row_start_graph -= num_cons
         subgraph_row_start = row_start_graph
@@ -190,7 +266,14 @@ function _plot_subgraphs!(graph::OptiGraph,plt,node_col_ranges,row_start_graph;n
 end
 
 #Overlap spy
-function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels = false,labelsize = 24,subgraph_colors = true)
+function matrix_plot(
+    graph::OptiGraph,
+    subgraphs::Vector{OptiGraph};
+    node_labels = false,
+    labelsize = 24,
+    subgraph_colors = true,
+    include_variable_constraints=false,
+)
 
     n_graphs = length(subgraphs)
     if subgraph_colors
@@ -204,10 +287,13 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
     end
 
     #Plot limits
-    n_vars_total = sum(num_variables.(subgraphs)) #+ sum(num_variables.(local_nodes(graph))) #master
-    n_cons_total = sum(num_constraints.(subgraphs)) #+ sum(num_constraints.(local_nodes(graph))) #+ num_link_constraints(graph)
-    n_linkcons_total = sum(num_link_constraints.(subgraphs)) #+ num_all_linkconstraints(graph)
-
+    n_vars_total = sum(Plasmo.num_variables.(subgraphs))
+    n_cons_total = sum(
+        Plasmo.num_constraints.(
+            subgraphs; count_variable_in_set_constraints=include_variable_constraints
+        ),
+    )
+    n_linkcons_total = num_link_constraints(graph)
     n_all_cons_total = n_cons_total + n_linkcons_total
 
     if n_all_cons_total >= 5
@@ -217,10 +303,21 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
     end
 
     #Setup plot dimensions
-    plt = Plots.plot(;xlims = [0,n_vars_total],ylims = [0,n_all_cons_total],legend = false,framestyle = :box,xlabel = "Node Variables",ylabel = "Constraints",size = (800,800),
-    guidefontsize = 24,tickfontsize = 18,grid = false,yticks = yticks)
+    plt = Plots.plot(;
+        xlims = [0,n_vars_total],
+        ylims = [0,n_all_cons_total],
+        legend = false,
+        framestyle = :box,
+        xlabel = "Node Variables",
+        ylabel = "Constraints",
+        size = (800,800),
+        guidefontsize = 24,
+        tickfontsize = 18,
+        grid = false,
+        yticks = yticks
+    )
 
-    row_start_graph = n_all_cons_total - 1
+    row_start_graph = n_all_cons_total
     col_start_graph = 1
     for i = 1:length(subgraphs)
         subgraph = subgraphs[i]
@@ -262,7 +359,14 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
                 push!(link_cols,col_start)
             end
         end
-        Plots.scatter!(plt,link_cols,link_rows,markersize = 1,markercolor = :blue,markershape = :rect);
+        Plots.scatter!(
+            plt,
+            link_cols,
+            link_rows,
+            markersize = 1,
+            markercolor = :blue,
+            markershape = :rect
+        );
 
         #draw node blocks for this graph
         for node in local_nodes(subgraph)
@@ -275,12 +379,19 @@ function matrix_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};node_labels =
             rec = rectangle(width,height,col_start,row_start)
             Plots.plot!(plt,rec,opacity = 1.0,color = colors[i])
             if node_labels
-                Plots.annotate!(plt,(col_start + width + col_start)/2,(row + height + row)/2,Plots.text(node.label.x, labelsize))
+                Plots.annotate!(
+                    plt,
+                    (col_start + width + col_start)/2,
+                    (row + height + row)/2,
+                    Plots.text(node.label.x, labelsize)
+                )
             end
         end
 
-        num_cons = num_constraints(subgraph) + num_link_constraints(subgraph)
-        num_vars = num_variables(subgraph)
+        num_cons = Plasmo.num_constraints(
+            subgraph; count_variable_in_set_constraints=include_variable_constraints
+        )
+        num_vars = Plasmo.num_variables(subgraph)
 
         subgraph_plt_start = row
         rec = rectangle(num_vars,num_cons,col_start_graph,subgraph_plt_start)

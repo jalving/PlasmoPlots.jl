@@ -1,9 +1,34 @@
 #TODO other plotting options:  plot bipartite, node-pins, or clique-graph
 """
-    PlasmoPlots.layout_plot(graph::OptiGraph; node_labels = false, subgraph_colors = false, node_colors = false, linewidth = 2.0,linealpha = 1.0, markersize = 30,labelsize = 20, markercolor = :grey,
-    layout_options = Dict(:tol => 0.01,:C => 2, :K => 4, :iterations => 2),
-    plt_options = Dict(:legend => false,:framestyle => :box,:grid => false,:size => (800,800),:axis => nothing),
-    line_options = Dict(:linecolor => :blue,:linewidth => linewidth,:linealpha => linealpha))
+    PlasmoPlots.layout_plot(
+        graph::OptiGraph; 
+        node_labels=false, 
+        subgraph_colors=false, 
+        node_colors=false, 
+        linewidth=2.0,
+        linealpha=1.0, 
+        markersize=30,
+        labelsize=20, 
+        markercolor=:grey,
+        layout_options = Dict(
+            :tol => 0.01,
+            :C => 2,
+            :K => 4, 
+            :iterations => 2
+        ),
+        plt_options = Dict(
+            :legend => false,
+            :framestyle => :box,
+            :grid => false,
+            :size => (800,800),
+            :axis => nothing
+        ),
+        line_options = Dict(
+            :linecolor => :blue,
+            :linewidth => linewidth,
+            :linealpha => linealpha)
+        )
+    )
 
 Plot a graph layout of the optigraph `graph`. The following keyword arguments can be provided to customize the graph layout.
 
@@ -40,9 +65,25 @@ function layout_plot(graph::OptiGraph;
     markersize = 30,
     labelsize = 20,
     markercolor = :grey,
-    layout_options = Dict(:tol => 0.01, :C => 2, :K => 4, :iterations => 2),
-    plt_options = Dict(:legend => false,:framestyle => :box,:grid => false,:size => (800,800),:axis => nothing),
-    line_options = Dict(:linecolor => :blue,:linewidth => linewidth,:linealpha => linealpha))
+    layout_options = Dict(
+        :tol => 0.01,
+        :C => 2,
+        :K => 4,
+        :iterations => 2
+    ),
+    plt_options = Dict(
+        :legend => false,
+        :framestyle => :box,
+        :grid => false,
+        :size => (800,800),
+        :axis => nothing
+    ),
+    line_options = Dict(
+        :linecolor => :blue,
+        :linewidth => linewidth,
+        :linealpha => linealpha
+    )
+)
 
     if subgraph_colors
         markercolor = []
@@ -76,13 +117,13 @@ function layout_plot(graph::OptiGraph;
     # clique_graph,clique_map = clique_expansion(hypergraph)
 
     clique_proj = clique_projection(graph)
-    lgraph = clique_proj.projected_graph
+    simple_graph = clique_proj.projected_graph
 
     startpositions = Array{Point{2,Float32},1}()
-    for i = 1:Graphs.nv(lgraph)
+    for i = 1:Graphs.nv(simple_graph)
         push!(startpositions,Point(rand(),rand()))
     end
-    mat = Graphs.adjacency_matrix(lgraph)
+    mat = Graphs.adjacency_matrix(simple_graph)
     # positions = SFDP.layout(mat,Point2f0,startpositions = startpositions;layout_options...)
     positions = NetworkLayout.sfdp(mat,initialpos = startpositions;layout_options...)
 
@@ -96,16 +137,58 @@ function layout_plot(graph::OptiGraph;
         end
     end
 
-    for edge in edges(lgraph)
+    for edge in edges(simple_graph)
         n_from_index = edge.src
         n_to_index = edge.dst
-        Plots.plot!(scat_plt,[positions[n_from_index][1],positions[n_to_index][1]],[positions[n_from_index][2],positions[n_to_index][2]];line_options...)
+        Plots.plot!(
+            scat_plt,
+            [positions[n_from_index][1], positions[n_to_index][1]],
+            [positions[n_from_index][2], positions[n_to_index][2]];
+            line_options...,
+            z_order = :back
+        )
     end
 
     return scat_plt
 end
 
-#Overlap plots
+# Overlapping Layout
+
+"""
+    PlasmoPlots.layout_plot(
+        graph::OptiGraph,
+        subgraphs::Vector{OptiGraph};
+        node_labels=false, 
+        subgraph_colors=false, 
+        node_colors=false, 
+        linewidth=2.0,
+        linealpha=1.0, 
+        markersize=30,
+        labelsize=20, 
+        markercolor=:grey,
+        layout_options = Dict(
+            :tol => 0.01,
+            :C => 2,
+            :K => 4, 
+            :iterations => 2
+        ),
+        plt_options = Dict(
+            :legend => false,
+            :framestyle => :box,
+            :grid => false,
+            :size => (800,800),
+            :axis => nothing
+        ),
+        line_options = Dict(
+            :linecolor => :blue,
+            :linewidth => linewidth,
+            :linealpha => linealpha)
+        )
+    )
+
+Plot a graph layout of the optigraph `graph` where `subgraphs` can contain overlapping nodes.
+Nodes that overlap are displayed as larger markers.
+"""
 function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
     node_labels = false,
     linewidth = 2.0,
@@ -113,11 +196,27 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
     markersize = 30,
     labelsize = 20,
     markercolor = :grey,
-    layout_options = Dict(:tol => 0.01,:C => 2, :K => 4, :iterations => 2), plt_options = Dict(:legend => false,:framestyle => :box,:grid => false,
-    :size => (800,800),:axis => nothing),
-    line_options = Dict(:linecolor => :blue,:linewidth => linewidth,:linealpha => linealpha))
+    layout_options = Dict(
+        :tol => 0.01,
+        :C => 2,
+        :K => 4,
+        :iterations => 2
+    ),
+    plt_options = Dict(
+        :legend => false,
+        :framestyle => :box,
+        :grid => false,
+        :size => (800,800),
+        :axis => nothing
+    ),
+    line_options = Dict(
+        :linecolor => :blue,
+        :linewidth => linewidth,
+        :linealpha => linealpha
+    )
+)
 
-    nodes = all_nodes(graph)
+    nodes = Plasmo.all_nodes(graph)
 
     #COLORS
     markercolors = []
@@ -130,8 +229,6 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
 
     #subgraph_colors = Dict()
     node_colors = Dict((node,[]) for node in all_nodes(graph))
-
-
     for (i,subgraph) in enumerate(subgraphs)
         for node in all_nodes(subgraph)
             push!(node_colors[node],cols[i])
@@ -161,17 +258,14 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
 
 
     #LAYOUT
-    # hypergraph,hyper_map = gethypergraph(graph)
-    # clique_graph,clique_map = clique_expansion(hypergraph)
     clique_proj = clique_projection(graph)
-    lgraph = clique_proj.projected_graph
-
+    simple_graph = clique_proj.projected_graph
 
     startpositions = Array{Point{2,Float32},1}()
-    for i = 1:Graphs.nv(lgraph)
+    for i = 1:Graphs.nv(simple_graph)
         push!(startpositions,Point(rand(),rand()))
     end
-    mat = Graphs.adjacency_matrix(lgraph)
+    mat = Graphs.adjacency_matrix(simple_graph)
     # positions = SFDP.layout(mat,Point2f0,startpositions = startpositions;layout_options...)
     positions = NetworkLayout.sfdp(mat,initialpos = startpositions;layout_options...)
 
@@ -185,7 +279,7 @@ function layout_plot(graph::OptiGraph,subgraphs::Vector{OptiGraph};
         end
     end
 
-    for edge in edges(lgraph)
+    for edge in edges(simple_graph)
         n_from_index = edge.src
         n_to_index = edge.dst
         Plots.plot!(scat_plt,[positions[n_from_index][1],positions[n_to_index][1]],[positions[n_from_index][2],positions[n_to_index][2]];line_options...)
