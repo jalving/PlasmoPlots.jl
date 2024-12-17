@@ -56,9 +56,8 @@ function matrix_plot(
         graph;
         count_variable_in_set_constraints=include_variable_constraints
     )
-    n_linkcons_total = num_link_constraints(graph)
 
-    n_all_cons_total = n_cons_total + n_linkcons_total
+    n_all_cons_total = n_cons_total
 
     if n_all_cons_total >= 5
         yticks = Int64.(round.(collect(range(0,stop = n_all_cons_total,length = 5))))
@@ -95,7 +94,7 @@ function matrix_plot(
     row = n_all_cons_total  - n_link_constraints #- height_initial
     #draw node blocks for this graph
     for (i,node) in enumerate(local_nodes(graph))
-        height = num_constraints(node)
+        height = num_constraints(node, count_variable_in_set_constraints = include_variable_constraints)
         row -= height
         #row_start,row_end = node_row_ranges[node]
         row_start = row
@@ -121,8 +120,7 @@ function matrix_plot(
 
     link_rows = []
     link_cols = []
-    for link in all_link_constraints(graph)
-        #row -= 1
+    for link in local_link_constraints(graph)
 
         linkcon = constraint_object(link)
         vars = keys(linkcon.func.terms)
@@ -190,8 +188,6 @@ function _plot_subgraphs!(
         row = row_start_graph
 
         for link in all_link_constraints(subgraph)
-            #row -= 1
-            #nodes = local_nodes(link)
             linkcon = constraint_object(link)
             vars = keys(linkcon.func.terms)
             for var in vars
@@ -293,8 +289,7 @@ function matrix_plot(
             subgraphs; count_variable_in_set_constraints=include_variable_constraints
         ),
     )
-    n_linkcons_total = num_link_constraints(graph)
-    n_all_cons_total = n_cons_total + n_linkcons_total
+    n_all_cons_total = n_cons_total
 
     if n_all_cons_total >= 5
         yticks = Int64.(round.(collect(range(0,stop = n_all_cons_total,length = 5))))
@@ -318,7 +313,7 @@ function matrix_plot(
     )
 
     row_start_graph = n_all_cons_total
-    col_start_graph = 1
+    col_start_graph = 0
     for i = 1:length(subgraphs)
         subgraph = subgraphs[i]
         #column data for subgraph
@@ -370,7 +365,7 @@ function matrix_plot(
 
         #draw node blocks for this graph
         for node in local_nodes(subgraph)
-            height = num_constraints(node)
+            height = num_constraints(node, count_variable_in_set_constraints = include_variable_constraints)
             row -= height
             row_start = row
             col_start,col_end = node_col_ranges[node]
