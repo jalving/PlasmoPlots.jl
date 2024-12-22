@@ -6,7 +6,7 @@ using Plots
 using NetworkLayout
 using GeometryBasics:Point2f0,Point
 using Colors
-using LightGraphs
+using Graphs
 
 export layout_plot, matrix_plot
 
